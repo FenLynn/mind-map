@@ -244,7 +244,7 @@ export default {
     this.$bus.$on('localStorageExceeded', this.onLocalStorageExceeded)
     window.addEventListener('resize', this.handleResize)
     this.$bus.$on('showDownloadTip', this.showDownloadTip)
-    this.webTip()
+    //this.webTip()
   },
   beforeDestroy() {
     this.$bus.$off('execCommand', this.execCommand)
@@ -626,70 +626,6 @@ export default {
       if (!file) return
       this.$bus.$emit('importFile', file)
     },
-
-    // 网页版试用提示
-    webTip() {
-      const storageKey = 'webUseTip'
-      const data = localStorage.getItem(storageKey)
-      if (data) {
-        return
-      }
-      this.showDownloadTip(
-        '重要提示',
-        '网页版已暂停更新，部分功能缺失，请下载客户端获得完整体验~'
-      )
-      localStorage.setItem(storageKey, 1)
-    },
-
-    showDownloadTip(title, desc) {
-      const h = this.$createElement
-      this.$msgbox({
-        title,
-        message: h('div', null, [
-          h(
-            'p',
-            {
-              style: {
-                marginBottom: '12px'
-              }
-            },
-            desc
-          ),
-          h('div', null, [
-            h(
-              'a',
-              {
-                attrs: {
-                  href:
-                    'https://pan.baidu.com/s/1huasEbKsGNH2Af68dvWiOg?pwd=3bp3',
-                  target: '_blank'
-                },
-                style: {
-                  color: '#409eff',
-                  marginRight: '12px'
-                }
-              },
-              this.$t('edit.downBaidu')
-            ),
-            h(
-              'a',
-              {
-                attrs: {
-                  href: 'https://github.com/wanglin2/mind-map/releases',
-                  target: '_blank'
-                },
-                style: {
-                  color: '#409eff'
-                }
-              },
-              this.$t('edit.downGithub')
-            )
-          ])
-        ]),
-        showCancelButton: false,
-        showConfirmButton: false
-      })
-    }
   }
 }
 </script>
