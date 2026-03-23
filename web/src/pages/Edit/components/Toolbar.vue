@@ -1,5 +1,22 @@
 <template>
   <div class="toolbarContainer" :class="{ isDark: isDark }">
+    <div class="mindmapQuickActions" v-if="!isMobile">
+      <div class="mindmapQuickGroup">
+        <span class="mindmapQuickLabel">本地文件</span>
+        <button class="mindmapQuickBtn local" type="button" @click="openLocalFile">打开原始</button>
+        <button class="mindmapQuickBtn local" type="button" @click="saveLocalFile">另存原始</button>
+      </div>
+      <div class="mindmapQuickGroup">
+        <span class="mindmapQuickLabel">WebDAV 云端</span>
+        <button class="mindmapQuickBtn cloud" type="button" @click="openCloudManager('save')">存入云盘</button>
+        <button class="mindmapQuickBtn cloud" type="button" @click="openCloudManager('load')">打开云盘</button>
+      </div>
+      <div class="mindmapQuickGroup">
+        <span class="mindmapQuickLabel">图片导出</span>
+        <button class="mindmapQuickBtn image" type="button" @click="$bus.$emit('showExport')">保存到本地</button>
+        <button class="mindmapQuickBtn image" type="button" @click="saveCloudImage">保存到云端</button>
+      </div>
+    </div>
     <div class="toolbar" ref="toolbarRef">
       <!-- 节点操作 -->
       <div class="toolbarBlock">
@@ -212,7 +229,7 @@ import Import from './Import.vue'
 import { mapState } from 'vuex'
 import { Notification } from 'element-ui'
 import exampleData from 'simple-mind-map/example/exampleData'
-import { getData, saveCloudData, loadCloudData, listCloudFiles, deleteCloudData } from '../../../api'
+import { getData, saveCloudData, loadCloudData, listCloudFiles, deleteCloudData, uploadCloudImage } from '../../../api'
 import ToolbarNodeBtnList from './ToolbarNodeBtnList.vue'
 import { throttle, isMobile } from 'simple-mind-map/src/utils/index'
 
@@ -591,6 +608,45 @@ export default {
     selectCloudFile(filename) {
       this.cloudSelectedFile = filename
       this.cloudFilename = filename
+    },
+
+    exportCurrentImage() {
+      return new Promise((resolve, reject) => {
+        this.$bus.$emit('exportRaw', {
+          args: ['png', false],
+          resolve,
+          reject
+        })
+      })
+    },
+
+    async saveCloudImage() {
+      try {
+        const suggested = String(this.cloudFilename || this.cloudCurrentFile || 'mindmap-export').replace(/\.smm$/i, '.png')
+        let filename = suggested
+        if (!/\.png$/i.test(filename)) filename = `${filename}.png`
+        const png = await this.exportCurrentImage()
+        const blob = await fetch(png).then(response => response.blob())
+        try {
+          await uploadCloudImage(filename, blob, false)
+        } catch (error) {
+          if (String(error.message || '').includes('Image already exists')) {
+            await this.$confirm(`云端已存在 ${filename}，是否覆盖图片？`, '覆盖确认', {
+              confirmButtonText: '覆盖',
+              cancelButtonText: '取消',
+              type: 'warning'
+            })
+            await uploadCloudImage(filename, blob, true)
+          } else {
+            throw error
+          }
+        }
+        this.$message.success(`图片已保存到云端：${filename}`)
+      } catch (error) {
+        if (error === 'cancel') return
+        if (String(error?.message || '').includes('cancel')) return
+        this.$message.error(error.message || '云端图片保存失败')
+      }
     },
 
     async saveCloudFile() {
@@ -1051,6 +1107,59 @@ export default {
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
+  }
+
+  .mindmapQuickActions {
+    position: fixed;
+    left: 50%;
+    top: 78px;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .mindmapQuickGroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  .mindmapQuickLabel {
+    color: rgba(26, 26, 26, 0.56);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .mindmapQuickBtn {
+    border: none;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .mindmapQuickBtn.local {
+    background: #eef2ff;
+    color: #3730a3;
+  }
+
+  .mindmapQuickBtn.cloud {
+    background: #ecfeff;
+    color: #155e75;
+  }
+
+  .mindmapQuickBtn.image {
+    background: #fff7ed;
+    color: #9a3412;
   }
 }
 </style>

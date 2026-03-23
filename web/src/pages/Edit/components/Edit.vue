@@ -234,6 +234,7 @@ export default {
     this.$bus.$on('execCommand', this.execCommand)
     this.$bus.$on('paddingChange', this.onPaddingChange)
     this.$bus.$on('export', this.export)
+    this.$bus.$on('exportRaw', this.exportRaw)
     this.$bus.$on('setData', this.setData)
     this.$bus.$on('startTextEdit', this.handleStartTextEdit)
     this.$bus.$on('endTextEdit', this.handleEndTextEdit)
@@ -248,6 +249,7 @@ export default {
   },
   beforeDestroy() {
     this.$bus.$off('execCommand', this.execCommand)
+    this.$bus.$off('exportRaw', this.exportRaw)
     this.$bus.$off('paddingChange', this.onPaddingChange)
     this.$bus.$off('export', this.export)
     this.$bus.$off('setData', this.setData)
@@ -557,6 +559,15 @@ export default {
       } catch (error) {
         console.log(error)
         hideLoading()
+      }
+    },
+
+    async exportRaw(task = {}) {
+      try {
+        const result = await this.mindMap.export(...(Array.isArray(task.args) ? task.args : []))
+        task.resolve && task.resolve(result)
+      } catch (error) {
+        task.reject && task.reject(error)
       }
     },
 

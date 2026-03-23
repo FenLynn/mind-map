@@ -178,3 +178,17 @@ export const deleteCloudData = async filename => {
   if (!response.ok) throw new Error(payload.error || `删除失败: ${response.status}`)
   return payload
 }
+
+export const uploadCloudImage = async (filename, blob, overwrite = false) => {
+  const formData = new FormData()
+  formData.append('filename', filename)
+  formData.append('overwrite', String(overwrite))
+  formData.append('file', blob, String(filename || 'mindmap.png').replace(/\.smm$/i, '.png'))
+  const response = await fetch('/api/mindmap/upload-image', {
+    method: 'POST',
+    body: formData
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.error || `图片上传失败: ${response.status}`)
+  return payload
+}
