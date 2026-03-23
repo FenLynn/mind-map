@@ -26,7 +26,7 @@
       </div>
       <!-- 导出 -->
       <div class="toolbarBlock">
-        <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="openDirectory" v-if="!isMobile">
+        <div class="toolbarBtn" :class="{ disabled: !canUseNativeDirectory }" @click="openDirectory" v-if="!isMobile">
           <span class="icon iconfont icondakai" data-fallback="录"></span>
           <span class="text">{{ $t('toolbar.directory') }}</span>
         </div>
@@ -171,6 +171,7 @@
     <NodeTag></NodeTag>
     <Export></Export>
     <Import ref="ImportRef"></Import>
+    <input ref="fallbackFileInput" type="file" accept=".smm,.json" style="display: none" @change="onFallbackLocalFileChange" />
     <el-dialog
       title="云端脑图"
       :visible.sync="cloudDialogVisible"
@@ -236,7 +237,7 @@ import Import from './Import.vue'
 import { mapState } from 'vuex'
 import { Notification } from 'element-ui'
 import exampleData from 'simple-mind-map/example/exampleData'
-import { getData, saveCloudData, loadCloudData, listCloudFiles, deleteCloudData, uploadCloudImage } from '../../../api'
+import { getData, saveCloudData, loadCloudData, listCloudFiles, deleteCloudData, uploadCloudImage, isMindmapHostBridgeAvailable } from '../../../api'
 import ToolbarNodeBtnList from './ToolbarNodeBtnList.vue'
 import { throttle, isMobile } from 'simple-mind-map/src/utils/index'
 
@@ -290,7 +291,10 @@ export default {
       rootDirName: '',
       fileTreeExpand: true,
       waitingWriteToLocalFile: false,
-      isLocalFsAvailable: Boolean(window.isSecureContext && window.showOpenFilePicker && window.showSaveFilePicker),
+      canUseNativeDirectory: Boolean(window.isSecureContext && window.showDirectoryPicker),
+      canUseNativeLocalFile: Boolean(window.isSecureContext && window.showOpenFilePicker && window.showSaveFilePicker),
+      isLocalFsAvailable: true,
+      hostBridgeEnabled: isMindmapHostBridgeAvailable(),
       cloudDialogVisible: false,
       cloudBusy: false,
       cloudFiles: [],
@@ -448,7 +452,7 @@ export default {
 
     // 扫描本地文件夹
     openDirectory() {
-      if (!this.isLocalFsAvailable) {
+      if (!this.canUseNativeDirectory) {
         this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
         return
       }
@@ -516,27 +520,61 @@ export default {
     },
 
     openLocalFileSafe() {
-      if (!this.isLocalFsAvailable) {
-        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+      if (this.canUseNativeLocalFile) {
+        this.openLocalFile()
         return
       }
-      this.openLocalFile()
+      this.$refs.fallbackFileInput.value = ''
+      this.$refs.fallbackFileInput.click()
     },
 
     saveLocalFileSafe() {
-      if (!this.isLocalFsAvailable) {
-        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+      if (this.canUseNativeLocalFile) {
+        this.saveLocalFile()
         return
       }
-      this.saveLocalFile()
+      this.downloadLocalSnapshot(getData(), this.cloudCurrentFile || 'mindmap.smm')
     },
 
     createNewLocalFileSafe() {
-      if (!this.isLocalFsAvailable) {
-        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+      if (this.canUseNativeLocalFile) {
+        this.createNewLocalFile()
         return
       }
-      this.createNewLocalFile()
+      this.$store.commit('setIsHandleLocalFile', false)
+      this.$bus.$emit('setData', exampleData)
+      this.downloadLocalSnapshot(exampleData, 'mindmap.smm')
+      this.$message.success('已生成新的本地脑图文件')
+    },
+
+    onFallbackLocalFileChange(event) {
+      const [file] = Array.from(event.target.files || [])
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        fileHandle = null
+        this.$store.commit('setIsHandleLocalFile', false)
+        this.setData(reader.result)
+        this.$message.success(`已打开本地文件：${file.name}`)
+      }
+      reader.onerror = () => {
+        this.$message.error('读取本地文件失败')
+      }
+      reader.readAsText(file)
+    },
+
+    downloadLocalSnapshot(content, filename = 'mindmap.smm') {
+      const safeName = String(filename || 'mindmap.smm').replace(/\.(json|smm)$/i, '')
+      const normalized = `${safeName}.smm`
+      const blob = new Blob([JSON.stringify(content)], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = normalized
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
     },
 
     // 读取本地文件

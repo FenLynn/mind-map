@@ -7,8 +7,65 @@ const SIMPLE_MIND_MAP_DATA = 'SIMPLE_MIND_MAP_DATA'
 const SIMPLE_MIND_MAP_CONFIG = 'SIMPLE_MIND_MAP_CONFIG'
 const SIMPLE_MIND_MAP_LANG = 'SIMPLE_MIND_MAP_LANG'
 const SIMPLE_MIND_MAP_LOCAL_CONFIG = 'SIMPLE_MIND_MAP_LOCAL_CONFIG'
+const MINDMAP_BRIDGE_CHANNEL = 'sci-mindmap-bridge'
 
 let mindMapData = null
+let bridgeRequestId = 0
+
+function isMindmapHostBridgeAvailable() {
+  try {
+    if (window.takeOverApp) return false
+    if (window.self === window.top) return false
+    return new URLSearchParams(window.location.search).get('hostBridge') === 'dashboard'
+  } catch {
+    return false
+  }
+}
+
+function requestMindmapHostBridge(action, payload = {}) {
+  if (!isMindmapHostBridgeAvailable()) {
+    return Promise.reject(new Error('当前页面未启用宿主桥接'))
+  }
+  return new Promise((resolve, reject) => {
+    const requestId = `mindmap-${Date.now()}-${bridgeRequestId += 1}`
+    const timer = window.setTimeout(() => {
+      window.removeEventListener('message', onMessage)
+      reject(new Error('宿主响应超时，请确认 dashboard 页面已刷新'))
+    }, 12000)
+
+    const onMessage = event => {
+      const data = event.data || {}
+      if (data.channel !== MINDMAP_BRIDGE_CHANNEL || data.direction !== 'response' || data.requestId !== requestId) {
+        return
+      }
+      window.clearTimeout(timer)
+      window.removeEventListener('message', onMessage)
+      if (data.ok) {
+        resolve(data.result)
+        return
+      }
+      reject(new Error(data.error || '宿主请求失败'))
+    }
+
+    window.addEventListener('message', onMessage)
+    window.parent.postMessage({
+      channel: MINDMAP_BRIDGE_CHANNEL,
+      direction: 'request',
+      requestId,
+      action,
+      payload
+    }, '*')
+  })
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('图片编码失败'))
+    reader.readAsDataURL(blob)
+  })
+}
 
 function getMindmapApiBase() {
   try {
@@ -155,6 +212,13 @@ export const getLocalConfig = () => {
 }
 
 export const saveCloudData = async (filename, data, overwrite = false) => {
+  if (isMindmapHostBridgeAvailable()) {
+    return requestMindmapHostBridge('cloud:save', {
+      filename,
+      overwrite,
+      content: JSON.stringify(data)
+    })
+  }
   const response = await fetch(buildMindmapApiUrl('/api/mindmap/save'), {
     method: 'POST',
     headers: {
@@ -172,6 +236,10 @@ export const saveCloudData = async (filename, data, overwrite = false) => {
 }
 
 export const loadCloudData = async filename => {
+  if (isMindmapHostBridgeAvailable()) {
+    const payload = await requestMindmapHostBridge('cloud:load', { filename })
+    return JSON.parse(payload.content || '{}')
+  }
   const response = await fetch(buildMindmapApiUrl(`/api/mindmap/load?filename=${encodeURIComponent(filename)}`))
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.error || `加载失败: ${response.status}`)
@@ -179,6 +247,10 @@ export const loadCloudData = async filename => {
 }
 
 export const listCloudFiles = async () => {
+  if (isMindmapHostBridgeAvailable()) {
+    const payload = await requestMindmapHostBridge('cloud:list')
+    return Array.isArray(payload.files) ? payload.files : []
+  }
   const response = await fetch(buildMindmapApiUrl('/api/mindmap/list'))
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
@@ -186,6 +258,9 @@ export const listCloudFiles = async () => {
 }
 
 export const deleteCloudData = async filename => {
+  if (isMindmapHostBridgeAvailable()) {
+    return requestMindmapHostBridge('cloud:delete', { filename })
+  }
   const response = await fetch(buildMindmapApiUrl('/api/mindmap/delete'), {
     method: 'POST',
     headers: {
@@ -199,6 +274,13 @@ export const deleteCloudData = async filename => {
 }
 
 export const uploadCloudImage = async (filename, blob, overwrite = false) => {
+  if (isMindmapHostBridgeAvailable()) {
+    return requestMindmapHostBridge('cloud:upload-image', {
+      filename,
+      overwrite,
+      dataUrl: await blobToDataUrl(blob)
+    })
+  }
   const formData = new FormData()
   formData.append('filename', filename)
   formData.append('overwrite', String(overwrite))
@@ -211,3 +293,5 @@ export const uploadCloudImage = async (filename, blob, overwrite = false) => {
   if (!response.ok) throw new Error(payload.error || `图片上传失败: ${response.status}`)
   return payload
 }
+
+export { isMindmapHostBridgeAvailable, requestMindmapHostBridge }
