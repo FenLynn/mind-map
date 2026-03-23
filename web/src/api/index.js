@@ -10,6 +10,23 @@ const SIMPLE_MIND_MAP_LOCAL_CONFIG = 'SIMPLE_MIND_MAP_LOCAL_CONFIG'
 
 let mindMapData = null
 
+function getMindmapApiBase() {
+  try {
+    const override = String(localStorage.getItem('mindmap_api_base') || '').trim().replace(/\/+$/, '')
+    if (override) return override
+    const referrerOrigin = document.referrer ? new URL(document.referrer).origin : ''
+    if (referrerOrigin) return referrerOrigin
+    return window.location.origin
+  } catch {
+    return ''
+  }
+}
+
+function buildMindmapApiUrl(path) {
+  const base = getMindmapApiBase()
+  return `${base}${path}`
+}
+
 // 获取缓存的思维导图数据
 export const getData = () => {
   // 接管模式
@@ -136,7 +153,7 @@ export const getLocalConfig = () => {
 }
 
 export const saveCloudData = async (filename, data, overwrite = false) => {
-  const response = await fetch('/api/mindmap/save', {
+  const response = await fetch(buildMindmapApiUrl('/api/mindmap/save'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -153,21 +170,21 @@ export const saveCloudData = async (filename, data, overwrite = false) => {
 }
 
 export const loadCloudData = async filename => {
-  const response = await fetch(`/api/mindmap/load?filename=${encodeURIComponent(filename)}`)
+  const response = await fetch(buildMindmapApiUrl(`/api/mindmap/load?filename=${encodeURIComponent(filename)}`))
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.error || `加载失败: ${response.status}`)
   return JSON.parse(payload.content || '{}')
 }
 
 export const listCloudFiles = async () => {
-  const response = await fetch('/api/mindmap/list')
+  const response = await fetch(buildMindmapApiUrl('/api/mindmap/list'))
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
   return Array.isArray(payload.files) ? payload.files : []
 }
 
 export const deleteCloudData = async filename => {
-  const response = await fetch('/api/mindmap/delete', {
+  const response = await fetch(buildMindmapApiUrl('/api/mindmap/delete'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -184,7 +201,7 @@ export const uploadCloudImage = async (filename, blob, overwrite = false) => {
   formData.append('filename', filename)
   formData.append('overwrite', String(overwrite))
   formData.append('file', blob, String(filename || 'mindmap.png').replace(/\.smm$/i, '.png'))
-  const response = await fetch('/api/mindmap/upload-image', {
+  const response = await fetch(buildMindmapApiUrl('/api/mindmap/upload-image'), {
     method: 'POST',
     body: formData
   })

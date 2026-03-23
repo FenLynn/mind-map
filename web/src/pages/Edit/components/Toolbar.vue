@@ -1,22 +1,5 @@
 <template>
   <div class="toolbarContainer" :class="{ isDark: isDark }">
-    <div class="mindmapQuickActions" v-if="!isMobile">
-      <div class="mindmapQuickGroup">
-        <span class="mindmapQuickLabel">本地文件</span>
-        <button class="mindmapQuickBtn local" type="button" @click="openLocalFile">打开原始</button>
-        <button class="mindmapQuickBtn local" type="button" @click="saveLocalFile">另存原始</button>
-      </div>
-      <div class="mindmapQuickGroup">
-        <span class="mindmapQuickLabel">WebDAV 云端</span>
-        <button class="mindmapQuickBtn cloud" type="button" @click="openCloudManager('save')">存入云盘</button>
-        <button class="mindmapQuickBtn cloud" type="button" @click="openCloudManager('load')">打开云盘</button>
-      </div>
-      <div class="mindmapQuickGroup">
-        <span class="mindmapQuickLabel">图片导出</span>
-        <button class="mindmapQuickBtn image" type="button" @click="$bus.$emit('showExport')">保存到本地</button>
-        <button class="mindmapQuickBtn image" type="button" @click="saveCloudImage">保存到云端</button>
-      </div>
-    </div>
     <div class="toolbar" ref="toolbarRef">
       <!-- 节点操作 -->
       <div class="toolbarBlock">
@@ -43,7 +26,7 @@
       </div>
       <!-- 导出 -->
       <div class="toolbarBlock">
-        <div class="toolbarBtn" @click="openDirectory" v-if="!isMobile">
+        <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="openDirectory" v-if="!isMobile">
           <span class="icon iconfont icondakai"></span>
           <span class="text">{{ $t('toolbar.directory') }}</span>
         </div>
@@ -53,7 +36,7 @@
           placement="bottom"
           v-if="!isMobile"
         >
-          <div class="toolbarBtn" @click="createNewLocalFile">
+          <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="createNewLocalFileSafe">
             <span class="icon iconfont iconxinjian"></span>
             <span class="text">{{ $t('toolbar.newFile') }}</span>
           </div>
@@ -64,12 +47,12 @@
           placement="bottom"
           v-if="!isMobile"
         >
-          <div class="toolbarBtn" @click="openLocalFile">
+          <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe">
             <span class="icon iconfont iconwenjian1"></span>
             <span class="text">{{ $t('toolbar.openFile') }}</span>
           </div>
         </el-tooltip>
-        <div class="toolbarBtn" @click="saveLocalFile" v-if="!isMobile">
+        <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="saveLocalFileSafe" v-if="!isMobile">
           <span class="icon iconfont iconlingcunwei"></span>
           <span class="text">{{ $t('toolbar.saveAs') }}</span>
         </div>
@@ -92,6 +75,30 @@
         >
           <span class="icon iconfont iconexport"></span>
           <span class="text">{{ $t('toolbar.export') }}</span>
+        </div>
+        <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe" v-if="!isMobile">
+          <span class="icon iconfont iconwenjian1"></span>
+          <span class="text">打开原始</span>
+        </div>
+        <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="saveLocalFileSafe" v-if="!isMobile">
+          <span class="icon iconfont iconlingcunwei"></span>
+          <span class="text">另存原始</span>
+        </div>
+        <div class="toolbarBtn toolbarBtnAccent cloud" @click="openCloudManager('save')" v-if="!isMobile">
+          <span class="icon iconfont iconshangchuan"></span>
+          <span class="text">存入云盘</span>
+        </div>
+        <div class="toolbarBtn toolbarBtnAccent cloud" @click="openCloudManager('load')" v-if="!isMobile">
+          <span class="icon iconfont icondakai"></span>
+          <span class="text">打开云盘</span>
+        </div>
+        <div class="toolbarBtn toolbarBtnAccent image" @click="$bus.$emit('showExport')" v-if="!isMobile">
+          <span class="icon iconfont iconexport"></span>
+          <span class="text">图片存本地</span>
+        </div>
+        <div class="toolbarBtn toolbarBtnAccent image" @click="saveCloudImage" v-if="!isMobile">
+          <span class="icon iconfont iconshangchuan"></span>
+          <span class="text">图片存云端</span>
         </div>
         <!-- 本地文件树 -->
         <div
@@ -283,6 +290,7 @@ export default {
       rootDirName: '',
       fileTreeExpand: true,
       waitingWriteToLocalFile: false,
+      isLocalFsAvailable: Boolean(window.isSecureContext && window.showOpenFilePicker && window.showSaveFilePicker),
       cloudDialogVisible: false,
       cloudBusy: false,
       cloudFiles: [],
@@ -440,6 +448,10 @@ export default {
 
     // 扫描本地文件夹
     openDirectory() {
+      if (!this.isLocalFsAvailable) {
+        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+        return
+      }
       this.fileTreeVisible = false
       this.fileTreeExpand = true
       this.rootDirName = ''
@@ -501,6 +513,30 @@ export default {
         }
         this.$message.warning(this.$t('toolbar.notSupportTip'))
       }
+    },
+
+    openLocalFileSafe() {
+      if (!this.isLocalFsAvailable) {
+        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+        return
+      }
+      this.openLocalFile()
+    },
+
+    saveLocalFileSafe() {
+      if (!this.isLocalFsAvailable) {
+        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+        return
+      }
+      this.saveLocalFile()
+    },
+
+    createNewLocalFileSafe() {
+      if (!this.isLocalFsAvailable) {
+        this.$message.warning('当前浏览器不支持原始文件直读写，请改用云端按钮。')
+        return
+      }
+      this.createNewLocalFile()
     },
 
     // 读取本地文件
@@ -1109,57 +1145,32 @@ export default {
     gap: 8px;
   }
 
-  .mindmapQuickActions {
-    position: fixed;
-    left: 50%;
-    top: 78px;
-    transform: translateX(-50%);
-    z-index: 3;
-    display: flex;
-    align-items: stretch;
-    gap: 12px;
-  }
+  .toolbarBtnAccent {
+    margin-left: 8px;
 
-  .mindmapQuickGroup {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.96);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  }
+    .icon {
+      border-color: transparent !important;
+    }
 
-  .mindmapQuickLabel {
-    color: rgba(26, 26, 26, 0.56);
-    font-size: 12px;
-    white-space: nowrap;
-  }
+    &.local .icon {
+      background: #eef2ff;
+      color: #3730a3;
+    }
 
-  .mindmapQuickBtn {
-    border: none;
-    border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-  }
+    &.cloud .icon {
+      background: #ecfeff;
+      color: #155e75;
+    }
 
-  .mindmapQuickBtn.local {
-    background: #eef2ff;
-    color: #3730a3;
-  }
+    &.image .icon {
+      background: #fff7ed;
+      color: #9a3412;
+    }
 
-  .mindmapQuickBtn.cloud {
-    background: #ecfeff;
-    color: #155e75;
-  }
-
-  .mindmapQuickBtn.image {
-    background: #fff7ed;
-    color: #9a3412;
+    &.disabled .icon,
+    &.disabled .text {
+      opacity: 0.45;
+    }
   }
 }
 </style>
