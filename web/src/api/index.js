@@ -134,3 +134,34 @@ export const getLocalConfig = () => {
   }
   return null
 }
+
+export const saveCloudData = async (filename, data, overwrite = false) => {
+  const response = await fetch('/api/mindmap/save', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      filename,
+      overwrite,
+      content: JSON.stringify(data)
+    })
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.error || `保存失败: ${response.status}`)
+  return payload
+}
+
+export const loadCloudData = async filename => {
+  const response = await fetch(`/api/mindmap/load?filename=${encodeURIComponent(filename)}`)
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.error || `加载失败: ${response.status}`)
+  return JSON.parse(payload.content || '{}')
+}
+
+export const listCloudFiles = async () => {
+  const response = await fetch('/api/mindmap/list')
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
+  return Array.isArray(payload.files) ? payload.files : []
+}

@@ -56,6 +56,14 @@
           <span class="icon iconfont iconlingcunwei"></span>
           <span class="text">{{ $t('toolbar.saveAs') }}</span>
         </div>
+        <div class="toolbarBtn" @click="saveCloudFile" v-if="!isMobile">
+          <span class="icon iconfont iconshangchuan"></span>
+          <span class="text">云存</span>
+        </div>
+        <div class="toolbarBtn" @click="loadCloudFile" v-if="!isMobile">
+          <span class="icon iconfont icondakai"></span>
+          <span class="text">云开</span>
+        </div>
         <div class="toolbarBtn" @click="$bus.$emit('showImport')">
           <span class="icon iconfont icondaoru"></span>
           <span class="text">{{ $t('toolbar.import') }}</span>
@@ -153,7 +161,7 @@ import Import from './Import.vue'
 import { mapState } from 'vuex'
 import { Notification } from 'element-ui'
 import exampleData from 'simple-mind-map/example/exampleData'
-import { getData } from '../../../api'
+import { getData, saveCloudData, loadCloudData, listCloudFiles } from '../../../api'
 import ToolbarNodeBtnList from './ToolbarNodeBtnList.vue'
 import { throttle, isMobile } from 'simple-mind-map/src/utils/index'
 
@@ -488,6 +496,54 @@ export default {
     async saveLocalFile() {
       let data = getData()
       await this.createLocalFile(data)
+    },
+
+    async saveCloudFile() {
+      try {
+        const { value } = await this.$prompt('输入云端文件名', '云保存', {
+          confirmButtonText: '保存',
+          cancelButtonText: '取消',
+          inputPlaceholder: '例如：项目脑图.smm'
+        })
+        const filename = String(value || '').trim()
+        if (!filename) return
+        const data = getData()
+        try {
+          await saveCloudData(filename, data, false)
+        } catch (error) {
+          if (String(error.message || '').includes('File already exists')) {
+            await saveCloudData(filename, data, true)
+          } else {
+            throw error
+          }
+        }
+        this.$message.success('云端保存成功')
+      } catch (error) {
+        if (error === 'cancel') return
+        if (String(error?.message || '').includes('cancel')) return
+        this.$message.error(error.message || '云端保存失败')
+      }
+    },
+
+    async loadCloudFile() {
+      try {
+        const files = await listCloudFiles().catch(() => [])
+        const message = files.length ? `可用文件：${files.slice(0, 8).join('，')}` : '输入云端文件名'
+        const { value } = await this.$prompt(message, '云加载', {
+          confirmButtonText: '打开',
+          cancelButtonText: '取消',
+          inputPlaceholder: '例如：项目脑图.smm'
+        })
+        const filename = String(value || '').trim()
+        if (!filename) return
+        const data = await loadCloudData(filename)
+        this.setData(JSON.stringify(data))
+        this.$message.success('云端文件已载入')
+      } catch (error) {
+        if (error === 'cancel') return
+        if (String(error?.message || '').includes('cancel')) return
+        this.$message.error(error.message || '云端加载失败')
+      }
     },
 
     // 创建本地文件
