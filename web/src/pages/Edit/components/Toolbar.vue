@@ -56,11 +56,11 @@
           <span class="icon iconfont iconlingcunwei"></span>
           <span class="text">{{ $t('toolbar.saveAs') }}</span>
         </div>
-        <div class="toolbarBtn" @click="saveCloudFile" v-if="!isMobile">
+        <div class="toolbarBtn" @click="openCloudManager('save')" v-if="!isMobile">
           <span class="icon iconfont iconshangchuan"></span>
-          <span class="text">云存</span>
+          <span class="text">云盘</span>
         </div>
-        <div class="toolbarBtn" @click="loadCloudFile" v-if="!isMobile">
+        <div class="toolbarBtn" @click="openCloudManager('load')" v-if="!isMobile">
           <span class="icon iconfont icondakai"></span>
           <span class="text">云开</span>
         </div>
@@ -147,6 +147,57 @@
     <NodeTag></NodeTag>
     <Export></Export>
     <Import ref="ImportRef"></Import>
+    <el-dialog
+      title="云端脑图"
+      :visible.sync="cloudDialogVisible"
+      width="620px"
+      custom-class="cloudMindmapDialog"
+      :close-on-click-modal="false"
+    >
+      <div class="cloudManagerHead">
+        <div class="cloudManagerIntro">
+          <strong>当前操作</strong>
+          <span>{{ cloudMode === 'save' ? '保存当前脑图到云端，可直接覆盖已有文件。' : '从云端文件列表中选中并打开脑图。' }}</span>
+        </div>
+        <el-button size="mini" @click="refreshCloudFiles" :loading="cloudBusy">刷新列表</el-button>
+      </div>
+      <div class="cloudManagerForm">
+        <span class="cloudManagerLabel">文件名</span>
+        <el-input
+          v-model="cloudFilename"
+          size="small"
+          placeholder="例如：项目脑图.smm"
+          @keyup.enter.native="cloudMode === 'save' ? saveCloudFile() : loadCloudFile()"
+        ></el-input>
+      </div>
+      <div class="cloudManagerBody" v-loading="cloudBusy">
+        <div class="cloudManagerTips">
+          <span>单击选中文件，双击直接打开。</span>
+          <span v-if="cloudFiles.length">共 {{ cloudFiles.length }} 个云端文件</span>
+        </div>
+        <div class="cloudFileList" v-if="cloudFiles.length">
+          <button
+            v-for="file in cloudFiles"
+            :key="file"
+            class="cloudFileItem"
+            :class="{ active: cloudSelectedFile === file }"
+            type="button"
+            @click="selectCloudFile(file)"
+            @dblclick="loadCloudFile(file)"
+          >
+            <span class="cloudFileName">{{ file }}</span>
+            <span class="cloudFileTag" v-if="cloudCurrentFile === file">当前</span>
+          </button>
+        </div>
+        <div class="cloudFileEmpty" v-else>云端还没有脑图文件，先输入一个文件名后点击保存。</div>
+      </div>
+      <span slot="footer" class="dialog-footer cloudManagerFooter">
+        <el-button size="small" @click="cloudDialogVisible = false">关闭</el-button>
+        <el-button size="small" type="danger" plain :disabled="!cloudSelectedFile" @click="deleteCloudFile">删除选中</el-button>
+        <el-button size="small" :disabled="!resolveCloudFilename()" @click="loadCloudFile()">打开选中</el-button>
+        <el-button size="small" type="primary" :disabled="!resolveCloudFilename()" @click="saveCloudFile">保存到云端</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -161,7 +212,7 @@ import Import from './Import.vue'
 import { mapState } from 'vuex'
 import { Notification } from 'element-ui'
 import exampleData from 'simple-mind-map/example/exampleData'
-import { getData, saveCloudData, loadCloudData, listCloudFiles } from '../../../api'
+import { getData, saveCloudData, loadCloudData, listCloudFiles, deleteCloudData } from '../../../api'
 import ToolbarNodeBtnList from './ToolbarNodeBtnList.vue'
 import { throttle, isMobile } from 'simple-mind-map/src/utils/index'
 
@@ -214,7 +265,14 @@ export default {
       fileTreeVisible: false,
       rootDirName: '',
       fileTreeExpand: true,
-      waitingWriteToLocalFile: false
+      waitingWriteToLocalFile: false,
+      cloudDialogVisible: false,
+      cloudBusy: false,
+      cloudFiles: [],
+      cloudFilename: '',
+      cloudSelectedFile: '',
+      cloudCurrentFile: '',
+      cloudMode: 'load'
     }
   },
   computed: {
@@ -498,25 +556,66 @@ export default {
       await this.createLocalFile(data)
     },
 
+    resolveCloudFilename() {
+      const filename = String(this.cloudFilename || this.cloudSelectedFile || '').trim()
+      return filename
+    },
+
+    async openCloudManager(mode = 'load') {
+      this.cloudMode = mode
+      this.cloudDialogVisible = true
+      await this.refreshCloudFiles()
+      if (!this.cloudFilename && this.cloudCurrentFile) {
+        this.cloudFilename = this.cloudCurrentFile
+      }
+    },
+
+    async refreshCloudFiles() {
+      try {
+        this.cloudBusy = true
+        const files = await listCloudFiles()
+        this.cloudFiles = files.slice().sort((a, b) => a.localeCompare(b, 'zh-CN'))
+        if (this.cloudSelectedFile && !this.cloudFiles.includes(this.cloudSelectedFile)) {
+          this.cloudSelectedFile = ''
+        }
+        if (!this.cloudSelectedFile && this.cloudCurrentFile && this.cloudFiles.includes(this.cloudCurrentFile)) {
+          this.cloudSelectedFile = this.cloudCurrentFile
+        }
+      } catch (error) {
+        this.$message.error(error.message || '读取云端列表失败')
+      } finally {
+        this.cloudBusy = false
+      }
+    },
+
+    selectCloudFile(filename) {
+      this.cloudSelectedFile = filename
+      this.cloudFilename = filename
+    },
+
     async saveCloudFile() {
       try {
-        const { value } = await this.$prompt('输入云端文件名', '云保存', {
-          confirmButtonText: '保存',
-          cancelButtonText: '取消',
-          inputPlaceholder: '例如：项目脑图.smm'
-        })
-        const filename = String(value || '').trim()
+        const filename = this.resolveCloudFilename()
         if (!filename) return
         const data = getData()
         try {
           await saveCloudData(filename, data, false)
         } catch (error) {
           if (String(error.message || '').includes('File already exists')) {
+            await this.$confirm(`云端已存在 ${filename}，是否覆盖保存？`, '覆盖确认', {
+              confirmButtonText: '覆盖',
+              cancelButtonText: '取消',
+              type: 'warning'
+            })
             await saveCloudData(filename, data, true)
           } else {
             throw error
           }
         }
+        this.cloudCurrentFile = filename.endsWith('.smm') ? filename : `${filename}.smm`
+        this.cloudSelectedFile = this.cloudCurrentFile
+        this.cloudFilename = this.cloudCurrentFile
+        await this.refreshCloudFiles()
         this.$message.success('云端保存成功')
       } catch (error) {
         if (error === 'cancel') return
@@ -525,24 +624,47 @@ export default {
       }
     },
 
-    async loadCloudFile() {
+    async loadCloudFile(filename) {
       try {
-        const files = await listCloudFiles().catch(() => [])
-        const message = files.length ? `可用文件：${files.slice(0, 8).join('，')}` : '输入云端文件名'
-        const { value } = await this.$prompt(message, '云加载', {
-          confirmButtonText: '打开',
-          cancelButtonText: '取消',
-          inputPlaceholder: '例如：项目脑图.smm'
-        })
-        const filename = String(value || '').trim()
-        if (!filename) return
-        const data = await loadCloudData(filename)
+        const target = String(filename || this.resolveCloudFilename() || '').trim()
+        if (!target) return
+        const data = await loadCloudData(target)
         this.setData(JSON.stringify(data))
+        this.cloudCurrentFile = target.endsWith('.smm') ? target : `${target}.smm`
+        this.cloudSelectedFile = this.cloudCurrentFile
+        this.cloudFilename = this.cloudCurrentFile
+        this.cloudDialogVisible = false
         this.$message.success('云端文件已载入')
       } catch (error) {
         if (error === 'cancel') return
         if (String(error?.message || '').includes('cancel')) return
         this.$message.error(error.message || '云端加载失败')
+      }
+    },
+
+    async deleteCloudFile() {
+      try {
+        const filename = String(this.cloudSelectedFile || '').trim()
+        if (!filename) return
+        await this.$confirm(`确认删除云端文件 ${filename}？`, '删除确认', {
+          confirmButtonText: '删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        await deleteCloudData(filename)
+        if (this.cloudCurrentFile === filename) {
+          this.cloudCurrentFile = ''
+        }
+        if (this.cloudFilename === filename) {
+          this.cloudFilename = ''
+        }
+        this.cloudSelectedFile = ''
+        await this.refreshCloudFiles()
+        this.$message.success('云端文件已删除')
+      } catch (error) {
+        if (error === 'cancel') return
+        if (String(error?.message || '').includes('cancel')) return
+        this.$message.error(error.message || '删除云端文件失败')
       }
     },
 
@@ -818,6 +940,117 @@ export default {
         margin-top: 3px;
       }
     }
+
+    /deep/ .cloudMindmapDialog {
+      .el-dialog__body {
+        padding-top: 12px;
+      }
+    }
+  }
+
+  .cloudManagerHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .cloudManagerIntro {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: rgba(26, 26, 26, 0.72);
+    line-height: 1.5;
+  }
+
+  .cloudManagerForm {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .cloudManagerLabel {
+    color: rgba(26, 26, 26, 0.72);
+  }
+
+  .cloudManagerBody {
+    min-height: 280px;
+    border: 1px solid #ebeef5;
+    border-radius: 8px;
+    background: #fafafa;
+    padding: 12px;
+  }
+
+  .cloudManagerTips {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    color: rgba(26, 26, 26, 0.58);
+    font-size: 12px;
+  }
+
+  .cloudFileList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow: auto;
+  }
+
+  .cloudFileItem {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #ebeef5;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .cloudFileItem.active {
+    border-color: #409eff;
+    background: #ecf5ff;
+  }
+
+  .cloudFileName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cloudFileTag {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(64, 158, 255, 0.12);
+    color: #409eff;
+    font-size: 12px;
+  }
+
+  .cloudFileEmpty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    color: rgba(26, 26, 26, 0.52);
+    text-align: center;
+  }
+
+  .cloudManagerFooter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
   }
 }
 </style>

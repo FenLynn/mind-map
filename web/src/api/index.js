@@ -165,3 +165,16 @@ export const listCloudFiles = async () => {
   if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
   return Array.isArray(payload.files) ? payload.files : []
 }
+
+export const deleteCloudData = async filename => {
+  const response = await fetch('/api/mindmap/delete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ filename })
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.error || `删除失败: ${response.status}`)
+  return payload
+}
