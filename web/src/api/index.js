@@ -12,6 +12,8 @@ let mindMapData = null
 
 function getMindmapApiBase() {
   try {
+    const urlBase = String(new URLSearchParams(window.location.search).get('apiBase') || '').trim().replace(/\/+$/, '')
+    if (urlBase) return urlBase
     const override = String(localStorage.getItem('mindmap_api_base') || '').trim().replace(/\/+$/, '')
     if (override) return override
     const referrerOrigin = document.referrer ? new URL(document.referrer).origin : ''
@@ -24,7 +26,7 @@ function getMindmapApiBase() {
 
 function buildMindmapApiUrl(path) {
   const base = getMindmapApiBase()
-  return `${base}${path}`
+  return base ? `${base}${path}` : path
 }
 
 // 获取缓存的思维导图数据

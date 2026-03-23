@@ -9,7 +9,7 @@
         }"
         @click="$bus.$emit('execCommand', 'BACK')"
       >
-        <span class="icon iconfont iconhoutui-shi"></span>
+        <span class="icon iconfont iconhoutui-shi" data-fallback="↶"></span>
         <span class="text">{{ $t('toolbar.undo') }}</span>
       </div>
       <div
@@ -20,7 +20,7 @@
         }"
         @click="$bus.$emit('execCommand', 'FORWARD')"
       >
-        <span class="icon iconfont iconqianjin1"></span>
+        <span class="icon iconfont iconqianjin1" data-fallback="↷"></span>
         <span class="text">{{ $t('toolbar.redo') }}</span>
       </div>
       <div
@@ -32,7 +32,7 @@
         }"
         @click="$bus.$emit('startPainter')"
       >
-        <span class="icon iconfont iconjiedian"></span>
+        <span class="icon iconfont iconjiedian" data-fallback="刷"></span>
         <span class="text">{{ $t('toolbar.painter') }}</span>
       </div>
       <div
@@ -43,7 +43,7 @@
         }"
         @click="$bus.$emit('execCommand', 'INSERT_NODE')"
       >
-        <span class="icon iconfont iconjiedian"></span>
+        <span class="icon iconfont iconjiedian" data-fallback="同"></span>
         <span class="text">{{ $t('toolbar.insertSiblingNode') }}</span>
       </div>
       <div
@@ -54,7 +54,7 @@
         }"
         @click="$bus.$emit('execCommand', 'INSERT_CHILD_NODE')"
       >
-        <span class="icon iconfont icontianjiazijiedian"></span>
+        <span class="icon iconfont icontianjiazijiedian" data-fallback="子"></span>
         <span class="text">{{ $t('toolbar.insertChildNode') }}</span>
       </div>
       <div
@@ -65,7 +65,7 @@
         }"
         @click="$bus.$emit('execCommand', 'REMOVE_NODE')"
       >
-        <span class="icon iconfont iconshanchu"></span>
+        <span class="icon iconfont iconshanchu" data-fallback="删"></span>
         <span class="text">{{ $t('toolbar.deleteNode') }}</span>
       </div>
       <div
@@ -76,7 +76,7 @@
         }"
         @click="$bus.$emit('showNodeImage')"
       >
-        <span class="icon iconfont iconimage"></span>
+        <span class="icon iconfont iconimage" data-fallback="图"></span>
         <span class="text">{{ $t('toolbar.image') }}</span>
       </div>
       <div
@@ -87,7 +87,7 @@
         }"
         @click="showNodeIcon"
       >
-        <span class="icon iconfont iconxiaolian"></span>
+        <span class="icon iconfont iconxiaolian" data-fallback="标"></span>
         <span class="text">{{ $t('toolbar.icon') }}</span>
       </div>
       <div
@@ -98,7 +98,7 @@
         }"
         @click="$bus.$emit('showNodeLink')"
       >
-        <span class="icon iconfont iconchaolianjie"></span>
+        <span class="icon iconfont iconchaolianjie" data-fallback="链"></span>
         <span class="text">{{ $t('toolbar.link') }}</span>
       </div>
       <div
@@ -109,7 +109,7 @@
         }"
         @click="$bus.$emit('showNodeNote')"
       >
-        <span class="icon iconfont iconflow-Mark"></span>
+        <span class="icon iconfont iconflow-Mark" data-fallback="注"></span>
         <span class="text">{{ $t('toolbar.note') }}</span>
       </div>
       <div
@@ -120,7 +120,7 @@
         }"
         @click="$bus.$emit('showNodeTag')"
       >
-        <span class="icon iconfont iconbiaoqian"></span>
+        <span class="icon iconfont iconbiaoqian" data-fallback="签"></span>
         <span class="text">{{ $t('toolbar.tag') }}</span>
       </div>
       <div
@@ -131,7 +131,7 @@
         }"
         @click="$bus.$emit('execCommand', 'ADD_GENERALIZATION')"
       >
-        <span class="icon iconfont icongaikuozonglan"></span>
+        <span class="icon iconfont icongaikuozonglan" data-fallback="概"></span>
         <span class="text">{{ $t('toolbar.summary') }}</span>
       </div>
       <div
@@ -142,7 +142,7 @@
         }"
         @click="$bus.$emit('createAssociativeLine')"
       >
-        <span class="icon iconfont iconlianjiexian"></span>
+        <span class="icon iconfont iconlianjiexian" data-fallback="线"></span>
         <span class="text">{{ $t('toolbar.associativeLine') }}</span>
       </div>
       <div
@@ -153,7 +153,7 @@
         }"
         @click="showFormula"
       >
-        <span class="icon iconfont icongongshi"></span>
+        <span class="icon iconfont icongongshi" data-fallback="Σ"></span>
         <span class="text">{{ $t('toolbar.formula') }}</span>
       </div>
       <div
@@ -164,7 +164,7 @@
         }"
         @click="selectAttachmentFile"
       >
-        <span class="icon iconfont iconfujian"></span>
+        <span class="icon iconfont iconfujian" data-fallback="附"></span>
         <span class="text">{{ $t('toolbar.attachment') }}</span>
       </div>
       <div
@@ -175,7 +175,7 @@
         }"
         @click="$bus.$emit('execCommand', 'ADD_OUTER_FRAME')"
       >
-        <span class="icon iconfont iconwaikuang"></span>
+        <span class="icon iconfont iconwaikuang" data-fallback="框"></span>
         <span class="text">{{ $t('toolbar.outerFrame') }}</span>
       </div>
       <div
@@ -186,7 +186,7 @@
         }"
         @click="aiCrate"
       >
-        <span class="icon iconfont iconAIshengcheng"></span>
+        <span class="icon iconfont iconAIshengcheng" data-fallback="AI"></span>
         <span class="text">{{ $t('toolbar.ai') }}</span>
       </div>
     </template>
@@ -385,6 +385,22 @@ export default {
       flex-direction: column;
       text-align: center;
       padding: 0 5px;
+
+      &.iconfont {
+        font-size: 0;
+
+        &::before {
+          display: none;
+        }
+
+        &::after {
+          content: attr(data-fallback);
+          font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
+        }
+      }
     }
 
     .text {

@@ -648,7 +648,7 @@ export default {
   right: 0;
   top: 0;
   bottom: 0;
-  background: #f5f7fa;
+  background: #f8f4ec;
 
   .dragMask {
     position: absolute;
@@ -674,7 +674,7 @@ export default {
     top: 0px;
     width: 100%;
     height: 100%;
-    background: #f5f7fa;
+    background: #f8f4ec;
   }
 }
 </style>

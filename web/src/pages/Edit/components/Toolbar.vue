@@ -19,7 +19,7 @@
             @click.native="popoverShow = false"
           ></ToolbarNodeBtnList>
           <div slot="reference" class="toolbarBtn">
-            <span class="icon iconfont icongongshi"></span>
+            <span class="icon iconfont icongongshi" data-fallback="更"></span>
             <span class="text">{{ $t('toolbar.more') }}</span>
           </div>
         </el-popover>
@@ -27,7 +27,7 @@
       <!-- 导出 -->
       <div class="toolbarBlock">
         <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="openDirectory" v-if="!isMobile">
-          <span class="icon iconfont icondakai"></span>
+          <span class="icon iconfont icondakai" data-fallback="录"></span>
           <span class="text">{{ $t('toolbar.directory') }}</span>
         </div>
         <el-tooltip
@@ -37,7 +37,7 @@
           v-if="!isMobile"
         >
           <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="createNewLocalFileSafe">
-            <span class="icon iconfont iconxinjian"></span>
+            <span class="icon iconfont iconxinjian" data-fallback="新"></span>
             <span class="text">{{ $t('toolbar.newFile') }}</span>
           </div>
         </el-tooltip>
@@ -48,24 +48,24 @@
           v-if="!isMobile"
         >
           <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe">
-            <span class="icon iconfont iconwenjian1"></span>
+            <span class="icon iconfont iconwenjian1" data-fallback="开"></span>
             <span class="text">{{ $t('toolbar.openFile') }}</span>
           </div>
         </el-tooltip>
         <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="saveLocalFileSafe" v-if="!isMobile">
-          <span class="icon iconfont iconlingcunwei"></span>
+          <span class="icon iconfont iconlingcunwei" data-fallback="存"></span>
           <span class="text">{{ $t('toolbar.saveAs') }}</span>
         </div>
         <div class="toolbarBtn" @click="openCloudManager('save')" v-if="!isMobile">
-          <span class="icon iconfont iconshangchuan"></span>
+          <span class="icon iconfont iconshangchuan" data-fallback="云"></span>
           <span class="text">云盘</span>
         </div>
         <div class="toolbarBtn" @click="openCloudManager('load')" v-if="!isMobile">
-          <span class="icon iconfont icondakai"></span>
+          <span class="icon iconfont icondakai" data-fallback="取"></span>
           <span class="text">云开</span>
         </div>
         <div class="toolbarBtn" @click="$bus.$emit('showImport')">
-          <span class="icon iconfont icondaoru"></span>
+          <span class="icon iconfont icondaoru" data-fallback="导"></span>
           <span class="text">{{ $t('toolbar.import') }}</span>
         </div>
         <div
@@ -73,31 +73,31 @@
           @click="$bus.$emit('showExport')"
           style="margin-right: 0;"
         >
-          <span class="icon iconfont iconexport"></span>
+          <span class="icon iconfont iconexport" data-fallback="出"></span>
           <span class="text">{{ $t('toolbar.export') }}</span>
         </div>
         <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe" v-if="!isMobile">
-          <span class="icon iconfont iconwenjian1"></span>
+          <span class="icon iconfont iconwenjian1" data-fallback="原"></span>
           <span class="text">打开原始</span>
         </div>
         <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="saveLocalFileSafe" v-if="!isMobile">
-          <span class="icon iconfont iconlingcunwei"></span>
+          <span class="icon iconfont iconlingcunwei" data-fallback="另"></span>
           <span class="text">另存原始</span>
         </div>
         <div class="toolbarBtn toolbarBtnAccent cloud" @click="openCloudManager('save')" v-if="!isMobile">
-          <span class="icon iconfont iconshangchuan"></span>
+          <span class="icon iconfont iconshangchuan" data-fallback="云"></span>
           <span class="text">存入云盘</span>
         </div>
         <div class="toolbarBtn toolbarBtnAccent cloud" @click="openCloudManager('load')" v-if="!isMobile">
-          <span class="icon iconfont icondakai"></span>
+          <span class="icon iconfont icondakai" data-fallback="盘"></span>
           <span class="text">打开云盘</span>
         </div>
         <div class="toolbarBtn toolbarBtnAccent image" @click="$bus.$emit('showExport')" v-if="!isMobile">
-          <span class="icon iconfont iconexport"></span>
+          <span class="icon iconfont iconexport" data-fallback="图"></span>
           <span class="text">图片存本地</span>
         </div>
         <div class="toolbarBtn toolbarBtnAccent image" @click="saveCloudImage" v-if="!isMobile">
-          <span class="icon iconfont iconshangchuan"></span>
+          <span class="icon iconfont iconshangchuan" data-fallback="上传"></span>
           <span class="text">图片存云端</span>
         </div>
         <!-- 本地文件树 -->
@@ -1026,6 +1026,22 @@ export default {
         flex-direction: column;
         text-align: center;
         padding: 0 5px;
+
+        &.iconfont {
+          font-size: 0;
+
+          &::before {
+            display: none;
+          }
+
+          &::after {
+            content: attr(data-fallback);
+            font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+          }
+        }
       }
 
       .text {
