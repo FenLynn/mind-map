@@ -64,10 +64,6 @@
           <span class="icon iconfont icondakai" data-fallback="盘"></span>
           <span class="text">打开云盘</span>
         </div>
-        <div class="toolbarBtn" @click="$bus.$emit('showImport')">
-          <span class="icon iconfont icondaoru" data-fallback="导"></span>
-          <span class="text">{{ $t('toolbar.import') }}</span>
-        </div>
         <div
           class="toolbarBtn toolbarBtnAccent image"
           @click="$bus.$emit('showExport')"
@@ -77,7 +73,7 @@
           <span class="icon iconfont iconexport" data-fallback="图"></span>
           <span class="text">图片存本地</span>
         </div>
-        <div class="toolbarBtn toolbarBtnAccent image" @click="saveCloudImage" v-if="!isMobile">
+        <div class="toolbarBtn toolbarBtnAccent image" @click="openCloudManager('image')" v-if="!isMobile">
           <span class="icon iconfont iconshangchuan" data-fallback="上传"></span>
           <span class="text">图片存云端</span>
         </div>
@@ -163,7 +159,7 @@
       <div class="cloudManagerHead">
         <div class="cloudManagerIntro">
           <strong>当前操作</strong>
-          <span>{{ cloudMode === 'save' ? '保存当前脑图到云端，可直接覆盖已有文件。' : '从云端文件列表中选中并打开脑图。' }}</span>
+          <span>{{ cloudMode === 'save' ? '保存当前脑图到云端，可直接覆盖已有文件。' : cloudMode === 'image' ? '保存当前脑图导出的 PNG 图片到云端，命名和列表管理统一在这里完成。' : '从云端文件列表中选中并打开脑图。' }}</span>
         </div>
         <el-button size="mini" @click="refreshCloudFiles" :loading="cloudBusy">刷新列表</el-button>
       </div>
@@ -172,14 +168,14 @@
         <el-input
           v-model="cloudFilename"
           size="small"
-          placeholder="例如：项目脑图.smm"
-          @keyup.enter.native="cloudMode === 'save' ? saveCloudFile() : loadCloudFile()"
+          :placeholder="cloudMode === 'image' ? '例如：项目脑图.png' : '例如：项目脑图.smm'"
+          @keyup.enter.native="cloudMode === 'load' ? loadCloudFile() : cloudMode === 'image' ? saveCloudImage() : saveCloudFile()"
         ></el-input>
       </div>
       <div class="cloudManagerBody" v-loading="cloudBusy">
         <div class="cloudManagerTips">
-          <span>单击选中文件，双击直接打开。</span>
-          <span v-if="cloudFiles.length">共 {{ cloudFiles.length }} 个云端文件</span>
+          <span>{{ cloudMode === 'image' ? '单击选中图片文件，可继续覆盖保存或删除。' : '单击选中文件，双击直接打开。' }}</span>
+          <span v-if="cloudFiles.length">共 {{ cloudFiles.length }} 个云端{{ cloudMode === 'image' ? '图片' : '文件' }}</span>
         </div>
         <div class="cloudFileList" v-if="cloudFiles.length">
           <button
@@ -189,19 +185,20 @@
             :class="{ active: cloudSelectedFile === file }"
             type="button"
             @click="selectCloudFile(file)"
-            @dblclick="loadCloudFile(file)"
+            @dblclick="cloudMode === 'load' && loadCloudFile(file)"
           >
             <span class="cloudFileName">{{ file }}</span>
-            <span class="cloudFileTag" v-if="cloudCurrentFile === file">当前</span>
+            <span class="cloudFileTag" v-if="cloudMode !== 'image' && cloudCurrentFile === file">当前</span>
           </button>
         </div>
-        <div class="cloudFileEmpty" v-else>云端还没有脑图文件，先输入一个文件名后点击保存。</div>
+        <div class="cloudFileEmpty" v-else>{{ cloudMode === 'image' ? '云端还没有 PNG 图片，先输入一个文件名后点击保存。' : '云端还没有脑图文件，先输入一个文件名后点击保存。' }}</div>
       </div>
       <span slot="footer" class="dialog-footer cloudManagerFooter">
         <el-button size="small" @click="cloudDialogVisible = false">关闭</el-button>
         <el-button size="small" type="danger" plain :disabled="!cloudSelectedFile" @click="deleteCloudFile">删除选中</el-button>
-        <el-button size="small" :disabled="!resolveCloudFilename()" @click="loadCloudFile()">打开选中</el-button>
-        <el-button size="small" type="primary" :disabled="!resolveCloudFilename()" @click="saveCloudFile">保存到云端</el-button>
+        <el-button v-if="cloudMode === 'load'" size="small" :disabled="!resolveCloudFilename()" @click="loadCloudFile()">打开选中</el-button>
+        <el-button v-if="cloudMode === 'image'" size="small" type="primary" :disabled="!resolveCloudFilename()" @click="saveCloudImage">保存图片</el-button>
+        <el-button v-else-if="cloudMode === 'save'" size="small" type="primary" :disabled="!resolveCloudFilename()" @click="saveCloudFile">保存到云端</el-button>
       </span>
     </el-dialog>
   </div>
@@ -218,7 +215,7 @@ import Import from './Import.vue'
 import { mapState } from 'vuex'
 import { Notification } from 'element-ui'
 import exampleData from 'simple-mind-map/example/exampleData'
-import { getData, saveCloudData, loadCloudData, listCloudFiles, deleteCloudData, uploadCloudImage, isMindmapHostBridgeAvailable } from '../../../api'
+import { getData, saveCloudData, loadCloudData, listCloudFiles, listCloudImages, deleteCloudData, uploadCloudImage, isMindmapHostBridgeAvailable } from '../../../api'
 import ToolbarNodeBtnList from './ToolbarNodeBtnList.vue'
 import { throttle, isMobile } from 'simple-mind-map/src/utils/index'
 
@@ -630,28 +627,35 @@ export default {
     },
 
     resolveCloudFilename() {
-      const filename = String(this.cloudFilename || this.cloudSelectedFile || '').trim()
-      return filename
+      let filename = String(this.cloudFilename || this.cloudSelectedFile || '').trim()
+      if (!filename) return ''
+      if (this.cloudMode === 'image') {
+        return /\.png$/i.test(filename) ? filename : `${filename}.png`
+      }
+      return /\.smm$/i.test(filename) ? filename : `${filename}.smm`
     },
 
     async openCloudManager(mode = 'load') {
       this.cloudMode = mode
       this.cloudDialogVisible = true
       await this.refreshCloudFiles()
-      if (!this.cloudFilename && this.cloudCurrentFile) {
-        this.cloudFilename = this.cloudCurrentFile
+      if (mode === 'image') {
+        const suggested = String(this.cloudCurrentFile || 'mindmap-export').replace(/\.smm$/i, '.png')
+        this.cloudFilename = this.cloudSelectedFile || suggested
+        return
       }
+      this.cloudFilename = this.cloudCurrentFile || this.resolveCloudFilename() || 'mindmap.smm'
     },
 
     async refreshCloudFiles() {
       try {
         this.cloudBusy = true
-        const files = await listCloudFiles()
+        const files = this.cloudMode === 'image' ? await listCloudImages() : await listCloudFiles()
         this.cloudFiles = files.slice().sort((a, b) => a.localeCompare(b, 'zh-CN'))
         if (this.cloudSelectedFile && !this.cloudFiles.includes(this.cloudSelectedFile)) {
           this.cloudSelectedFile = ''
         }
-        if (!this.cloudSelectedFile && this.cloudCurrentFile && this.cloudFiles.includes(this.cloudCurrentFile)) {
+        if (this.cloudMode !== 'image' && !this.cloudSelectedFile && this.cloudCurrentFile && this.cloudFiles.includes(this.cloudCurrentFile)) {
           this.cloudSelectedFile = this.cloudCurrentFile
         }
       } catch (error) {
@@ -678,9 +682,8 @@ export default {
 
     async saveCloudImage() {
       try {
-        const suggested = String(this.cloudFilename || this.cloudCurrentFile || 'mindmap-export').replace(/\.smm$/i, '.png')
-        let filename = suggested
-        if (!/\.png$/i.test(filename)) filename = `${filename}.png`
+        const filename = this.resolveCloudFilename()
+        if (!filename) return
         const png = await this.exportCurrentImage()
         const blob = await fetch(png).then(response => response.blob())
         try {
@@ -697,6 +700,9 @@ export default {
             throw error
           }
         }
+        this.cloudSelectedFile = filename
+        this.cloudFilename = filename
+        await this.refreshCloudFiles()
         this.$message.success(`图片已保存到云端：${filename}`)
       } catch (error) {
         if (error === 'cancel') return
@@ -738,6 +744,7 @@ export default {
 
     async loadCloudFile(filename) {
       try {
+        if (this.cloudMode === 'image') return
         const target = String(filename || this.resolveCloudFilename() || '').trim()
         if (!target) return
         const data = await loadCloudData(target)
@@ -758,13 +765,13 @@ export default {
       try {
         const filename = String(this.cloudSelectedFile || '').trim()
         if (!filename) return
-        await this.$confirm(`确认删除云端文件 ${filename}？`, '删除确认', {
+        await this.$confirm(`确认删除云端${this.cloudMode === 'image' ? '图片' : '文件'} ${filename}？`, '删除确认', {
           confirmButtonText: '删除',
           cancelButtonText: '取消',
           type: 'warning'
         })
-        await deleteCloudData(filename)
-        if (this.cloudCurrentFile === filename) {
+        await deleteCloudData(filename, this.cloudMode === 'image' ? 'image' : 'file')
+        if (this.cloudMode !== 'image' && this.cloudCurrentFile === filename) {
           this.cloudCurrentFile = ''
         }
         if (this.cloudFilename === filename) {
@@ -772,11 +779,11 @@ export default {
         }
         this.cloudSelectedFile = ''
         await this.refreshCloudFiles()
-        this.$message.success('云端文件已删除')
+        this.$message.success(this.cloudMode === 'image' ? '云端图片已删除' : '云端文件已删除')
       } catch (error) {
         if (error === 'cancel') return
         if (String(error?.message || '').includes('cancel')) return
-        this.$message.error(error.message || '删除云端文件失败')
+        this.$message.error(error.message || (this.cloudMode === 'image' ? '删除云端图片失败' : '删除云端文件失败'))
       }
     },
 

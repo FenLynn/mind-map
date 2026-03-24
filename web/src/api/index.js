@@ -257,16 +257,27 @@ export const listCloudFiles = async () => {
   return Array.isArray(payload.files) ? payload.files : []
 }
 
-export const deleteCloudData = async filename => {
+export const listCloudImages = async () => {
   if (isMindmapHostBridgeAvailable()) {
-    return requestMindmapHostBridge('cloud:delete', { filename })
+    const payload = await requestMindmapHostBridge('cloud:list-images')
+    return Array.isArray(payload.files) ? payload.files : []
+  }
+  const response = await fetch(buildMindmapApiUrl('/api/mindmap/list?kind=image'))
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
+  return Array.isArray(payload.files) ? payload.files : []
+}
+
+export const deleteCloudData = async (filename, kind = 'file') => {
+  if (isMindmapHostBridgeAvailable()) {
+    return requestMindmapHostBridge('cloud:delete', { filename, kind })
   }
   const response = await fetch(buildMindmapApiUrl('/api/mindmap/delete'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ filename })
+    body: JSON.stringify({ filename, kind })
   })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.error || `删除失败: ${response.status}`)
