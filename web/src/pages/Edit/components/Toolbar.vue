@@ -276,6 +276,7 @@ export default {
     ToolbarNodeBtnList
   },
   data() {
+    const hostBridgeEnabled = isMindmapHostBridgeAvailable()
     return {
       isMobile: isMobile(),
       horizontalList: [],
@@ -291,10 +292,10 @@ export default {
       rootDirName: '',
       fileTreeExpand: true,
       waitingWriteToLocalFile: false,
-      canUseNativeDirectory: Boolean(window.isSecureContext && window.showDirectoryPicker),
-      canUseNativeLocalFile: Boolean(window.isSecureContext && window.showOpenFilePicker && window.showSaveFilePicker),
+      canUseNativeDirectory: Boolean(!hostBridgeEnabled && window.isSecureContext && window.showDirectoryPicker),
+      canUseNativeLocalFile: Boolean(!hostBridgeEnabled && window.isSecureContext && window.showOpenFilePicker && window.showSaveFilePicker),
       isLocalFsAvailable: true,
-      hostBridgeEnabled: isMindmapHostBridgeAvailable(),
+      hostBridgeEnabled,
       cloudDialogVisible: false,
       cloudBusy: false,
       cloudFiles: [],
