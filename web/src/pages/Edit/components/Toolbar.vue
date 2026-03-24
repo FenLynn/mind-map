@@ -47,39 +47,11 @@
           placement="bottom"
           v-if="!isMobile"
         >
-          <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe">
-            <span class="icon iconfont iconwenjian1" data-fallback="开"></span>
-            <span class="text">{{ $t('toolbar.openFile') }}</span>
+          <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe">
+            <span class="icon iconfont iconwenjian1" data-fallback="原"></span>
+            <span class="text">打开原始</span>
           </div>
         </el-tooltip>
-        <div class="toolbarBtn" :class="{ disabled: !isLocalFsAvailable }" @click="saveLocalFileSafe" v-if="!isMobile">
-          <span class="icon iconfont iconlingcunwei" data-fallback="存"></span>
-          <span class="text">{{ $t('toolbar.saveAs') }}</span>
-        </div>
-        <div class="toolbarBtn" @click="openCloudManager('save')" v-if="!isMobile">
-          <span class="icon iconfont iconshangchuan" data-fallback="云"></span>
-          <span class="text">云盘</span>
-        </div>
-        <div class="toolbarBtn" @click="openCloudManager('load')" v-if="!isMobile">
-          <span class="icon iconfont icondakai" data-fallback="取"></span>
-          <span class="text">云开</span>
-        </div>
-        <div class="toolbarBtn" @click="$bus.$emit('showImport')">
-          <span class="icon iconfont icondaoru" data-fallback="导"></span>
-          <span class="text">{{ $t('toolbar.import') }}</span>
-        </div>
-        <div
-          class="toolbarBtn"
-          @click="$bus.$emit('showExport')"
-          style="margin-right: 0;"
-        >
-          <span class="icon iconfont iconexport" data-fallback="出"></span>
-          <span class="text">{{ $t('toolbar.export') }}</span>
-        </div>
-        <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="openLocalFileSafe" v-if="!isMobile">
-          <span class="icon iconfont iconwenjian1" data-fallback="原"></span>
-          <span class="text">打开原始</span>
-        </div>
         <div class="toolbarBtn toolbarBtnAccent local" :class="{ disabled: !isLocalFsAvailable }" @click="saveLocalFileSafe" v-if="!isMobile">
           <span class="icon iconfont iconlingcunwei" data-fallback="另"></span>
           <span class="text">另存原始</span>
@@ -92,7 +64,16 @@
           <span class="icon iconfont icondakai" data-fallback="盘"></span>
           <span class="text">打开云盘</span>
         </div>
-        <div class="toolbarBtn toolbarBtnAccent image" @click="$bus.$emit('showExport')" v-if="!isMobile">
+        <div class="toolbarBtn" @click="$bus.$emit('showImport')">
+          <span class="icon iconfont icondaoru" data-fallback="导"></span>
+          <span class="text">{{ $t('toolbar.import') }}</span>
+        </div>
+        <div
+          class="toolbarBtn toolbarBtnAccent image"
+          @click="$bus.$emit('showExport')"
+          style="margin-right: 0;"
+          v-if="!isMobile"
+        >
           <span class="icon iconfont iconexport" data-fallback="图"></span>
           <span class="text">图片存本地</span>
         </div>
@@ -1201,8 +1182,6 @@ export default {
   }
 
   .toolbarBtnAccent {
-    margin-left: 8px;
-
     .icon {
       border-color: transparent !important;
     }
