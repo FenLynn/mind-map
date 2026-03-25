@@ -66,8 +66,7 @@
         </div>
         <div
           class="toolbarBtn toolbarBtnAccent image"
-          @click="$bus.$emit('showExport')"
-          style="margin-right: 0;"
+          @click="saveLocalImage"
           v-if="!isMobile"
         >
           <span class="icon iconfont iconexport" data-fallback="图"></span>
@@ -711,6 +710,22 @@ export default {
       }
     },
 
+    async saveLocalImage() {
+      try {
+        const filename = String(this.cloudCurrentFile || 'mindmap-export').replace(/\.smm$/i, '.png')
+        const png = await this.exportCurrentImage()
+        const anchor = document.createElement('a')
+        anchor.href = png
+        anchor.download = /\.png$/i.test(filename) ? filename : `${filename}.png`
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        this.$message.success(`图片已保存到本地：${anchor.download}`)
+      } catch (error) {
+        this.$message.error(error.message || '本地图片保存失败')
+      }
+    },
+
     async saveCloudFile() {
       try {
         const filename = this.resolveCloudFilename()
@@ -1189,6 +1204,13 @@ export default {
   }
 
   .toolbarBtnAccent {
+    min-width: 72px;
+
+    .text {
+      white-space: nowrap;
+      text-align: center;
+    }
+
     .icon {
       border-color: transparent !important;
     }
