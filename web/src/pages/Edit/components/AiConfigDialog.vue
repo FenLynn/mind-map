@@ -9,21 +9,37 @@
     <div class="aiConfigBox">
       <el-form
         :model="ruleForm"
-        :rules="rules"
+        :rules="activeRules"
         ref="ruleFormRef"
         label-width="100px"
       >
-        <p class="title">{{ $t('ai.VolcanoArkLargeModelConfiguration') }}</p>
-        <p class="desc">
-          {{ $t('ai.configTip') }}<a href="https://mp.weixin.qq.com/s/JNb7PH4sCjWzIZ9G8wStGQ" target="_blank">{{ $t('ai.course') }}</a
-          >。
-        </p>
-        <el-form-item label="API Key" prop="key">
-          <el-input v-model="ruleForm.key"></el-input>
-        </el-form-item>
-        <el-form-item :label="$t('ai.inferenceAccessPoint')" prop="model">
-          <el-input v-model="ruleForm.model"></el-input>
-        </el-form-item>
+        <template v-if="isDashboardAiMode">
+          <p class="title">Dashboard Gemini</p>
+          <p class="desc">当前嵌入 Sci Dashboard，直接复用默认 Gemini Key。这里只需要选择模型；留空时自动跟随仪表盘当前默认模型。</p>
+          <el-form-item label="模型">
+            <el-select v-model="ruleForm.model" clearable placeholder="跟随 Dashboard 默认模型" style="width: 100%;">
+              <el-option label="跟随 Dashboard 默认模型" value=""></el-option>
+              <el-option
+                v-for="item in modelOptions"
+                :key="item.id"
+                :label="item.label || item.id"
+                :value="item.id"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+        </template>
+        <template v-else>
+          <p class="title">{{ $t('ai.VolcanoArkLargeModelConfiguration') }}</p>
+          <p class="desc">
+            {{ $t('ai.configTip') }}<a href="https://mp.weixin.qq.com/s/JNb7PH4sCjWzIZ9G8wStGQ" target="_blank">{{ $t('ai.course') }}</a
+            >。
+          </p>
+          <el-form-item label="API Key" prop="key">
+            <el-input v-model="ruleForm.key"></el-input>
+          </el-form-item>
+          <el-form-item :label="$t('ai.inferenceAccessPoint')" prop="model">
+            <el-input v-model="ruleForm.model"></el-input>
+          </el-form-item>
         <!-- <el-form-item label="接口" prop="api">
           <el-input v-model="ruleForm.api"></el-input>
         </el-form-item>
@@ -37,6 +53,7 @@
         <el-form-item :label="$t('ai.port')" prop="port">
           <el-input v-model="ruleForm.port"></el-input>
         </el-form-item> -->
+        </template>
       </el-form>
     </div>
     <div slot="footer" class="dialog-footer">
@@ -112,7 +129,26 @@ export default {
     }
   },
   computed: {
-    ...mapState(['aiConfig'])
+    ...mapState(['aiConfig']),
+    isDashboardAiMode() {
+      try {
+        return new URLSearchParams(window.location.search).get('hostBridge') === 'dashboard'
+      } catch {
+        return false
+      }
+    },
+    modelOptions() {
+      try {
+        const raw = new URLSearchParams(window.location.search).get('aiModels')
+        const list = raw ? JSON.parse(raw) : []
+        return Array.isArray(list) ? list.filter(item => item && item.id) : []
+      } catch {
+        return []
+      }
+    },
+    activeRules() {
+      return this.isDashboardAiMode ? {} : this.rules
+    }
   },
   watch: {
     visible(val) {
@@ -138,6 +174,9 @@ export default {
       Object.keys(this.aiConfig).forEach(key => {
         this.ruleForm[key] = this.aiConfig[key]
       })
+      if (this.isDashboardAiMode && !this.ruleForm.model) {
+        this.ruleForm.model = new URLSearchParams(window.location.search).get('aiModel') || ''
+      }
     },
 
     cancel() {

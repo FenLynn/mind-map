@@ -1,3 +1,5 @@
+import { isMindmapHostBridgeAvailable, requestMindmapHostBridge } from '@/api'
+
 class Ai {
   constructor(options = {}) {
     this.options = options
@@ -9,6 +11,15 @@ class Ai {
   }
 
   init(type = 'huoshan', options = {}) {
+    if (isMindmapHostBridgeAvailable()) {
+      this.baseData = {
+        provider: 'dashboard',
+        data: {
+          model: options.model || ''
+        }
+      }
+      return
+    }
     // 火山引擎接口
     if (type === 'huoshan') {
       this.baseData = {
@@ -27,6 +38,18 @@ class Ai {
 
   async request(data, progress = () => {}, end = () => {}, err = () => {}) {
     try {
+      if (this.baseData.provider === 'dashboard') {
+        this.controller = new AbortController()
+        const payload = await requestMindmapHostBridge('ai:chat', {
+          messages: Array.isArray(data?.messages) ? data.messages : [],
+          model: this.baseData?.data?.model || ''
+        })
+        if (this.controller.signal.aborted) return
+        this.content = String(payload?.content || '')
+        progress(this.content)
+        end(this.content)
+        return
+      }
       const res = await this.postMsg(data)
       const decoder = new TextDecoder()
       while (1) {
@@ -112,7 +135,7 @@ class Ai {
   }
 
   stop() {
-    this.controller.abort()
+    this.controller?.abort()
     this.controller = new AbortController()
   }
 }

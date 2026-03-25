@@ -111,6 +111,7 @@ import {
   getStrWithBrFromHtml
 } from 'simple-mind-map/src/utils'
 import { mapState } from 'vuex'
+import { isMindmapHostBridgeAvailable } from '@/api'
 import AiConfigDialog from './AiConfigDialog.vue'
 
 export default {
@@ -174,6 +175,12 @@ export default {
 
     // 客户端连接检测
     async testConnect() {
+      if (isMindmapHostBridgeAvailable()) {
+        this.$message.success('当前已接入 Dashboard AI')
+        this.clientTipDialogVisible = false
+        this.createDialogVisible = true
+        return
+      }
       try {
         await fetch(`http://localhost:${this.aiConfig.port}/ai/test`, {
           method: 'GET'
@@ -189,6 +196,9 @@ export default {
 
     // 检测ai是否可用
     async aiTest() {
+      if (isMindmapHostBridgeAvailable()) {
+        return true
+      }
       // 检查配置
       if (
         !(
