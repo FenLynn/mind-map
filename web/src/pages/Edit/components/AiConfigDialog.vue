@@ -14,8 +14,16 @@
         label-width="100px"
       >
         <template v-if="isDashboardAiMode">
-          <p class="title">Dashboard Gemini</p>
-          <p class="desc">当前嵌入 Sci Dashboard，直接复用默认 Gemini Key。这里只需要选择模型；留空时自动跟随仪表盘当前默认模型。</p>
+          <div class="dashboardModeCard">
+            <div>
+              <p class="title">Dashboard Gemini</p>
+              <p class="desc">当前嵌入 Sci Dashboard，直接复用默认 Gemini Key。这里只需要选择模型；留空时自动跟随仪表盘当前默认模型。</p>
+            </div>
+            <div class="dashboardModeMeta">
+              <span class="modeTag">模型池已接管</span>
+              <span class="modeHint">当前默认：{{ currentDashboardModel || '跟随 Dashboard 默认模型' }}</span>
+            </div>
+          </div>
           <el-form-item label="模型">
             <el-select v-model="ruleForm.model" clearable placeholder="跟随 Dashboard 默认模型" style="width: 100%;">
               <el-option label="跟随 Dashboard 默认模型" value=""></el-option>
@@ -146,6 +154,13 @@ export default {
         return []
       }
     },
+    currentDashboardModel() {
+      try {
+        return new URLSearchParams(window.location.search).get('aiModel') || ''
+      } catch {
+        return ''
+      }
+    },
     activeRules() {
       return this.isDashboardAiMode ? {} : this.rules
     }
@@ -206,17 +221,57 @@ export default {
   }
 
   .aiConfigBox {
+    .dashboardModeCard {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(236, 253, 245, 0.92));
+      border: 1px solid rgba(125, 211, 252, 0.42);
+    }
+
+    .dashboardModeMeta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      min-width: 140px;
+    }
+
+    .modeTag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.12);
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .modeHint {
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: right;
+      color: #4b5563;
+    }
+
     a {
       color: #409eff;
     }
 
     .title {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       font-weight: bold;
     }
 
     .desc {
-      margin-bottom: 12px;
+      margin-bottom: 0;
       padding-left: 12px;
       border-left: 5px solid #ccc;
     }

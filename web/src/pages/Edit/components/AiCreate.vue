@@ -48,12 +48,19 @@
           v-model="aiInput"
         >
         </el-input>
+        <div v-if="isDashboardMode" class="tip dashboard-tip">
+          当前由 Sci Dashboard 统一提供 Gemini 能力，直接输入主题即可生成；模型切换会跟随上方 Dashboard 配置。
+        </div>
         <div class="tip warning">
           {{ $t('ai.importantTip') }}
         </div>
         <div class="tip">
-          {{ $t('ai.wantModifyAiConfigTip')
-          }}<el-button size="small" @click="showAiConfigDialog">{{
+          <template v-if="isDashboardMode">
+            需要切换模型时，直接调整当前 Dashboard 模型池或在这里指定本页使用的模型。
+          </template>
+          <template v-else>
+            {{ $t('ai.wantModifyAiConfigTip') }}
+          </template><el-button size="small" @click="showAiConfigDialog">{{
             $t('ai.modifyAIConfiguration')
           }}</el-button>
         </div>
@@ -148,7 +155,10 @@ export default {
     }
   },
   computed: {
-    ...mapState(['aiConfig'])
+    ...mapState(['aiConfig']),
+    isDashboardMode() {
+      return isMindmapHostBridgeAvailable()
+    }
   },
   created() {
     this.$bus.$on('ai_create_all', this.aiCrateAll)
@@ -609,6 +619,20 @@ export default {
   }
 }
 </script>
+
+<style lang="less" scoped>
+.inputBox {
+  .tip.dashboard-tip {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(236, 253, 245, 0.92));
+    border: 1px solid rgba(125, 211, 252, 0.42);
+    color: #1f2937;
+    line-height: 1.6;
+  }
+}
+</style>
 
 <style lang="less" scoped>
 .clientTipDialog,
