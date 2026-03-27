@@ -12,11 +12,21 @@ const MINDMAP_BRIDGE_CHANNEL = 'sci-mindmap-bridge'
 let mindMapData = null
 let bridgeRequestId = 0
 
+function isEmbeddedInParent() {
+  try {
+    return window.self !== window.top
+  } catch {
+    return true
+  }
+}
+
 function isMindmapHostBridgeAvailable() {
   try {
     if (window.takeOverApp) return false
-    if (window.self === window.top) return false
-    return new URLSearchParams(window.location.search).get('hostBridge') === 'dashboard'
+    if (!isEmbeddedInParent()) return false
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('hostBridge') === 'dashboard') return true
+    return Boolean(document.referrer)
   } catch {
     return false
   }
@@ -56,6 +66,20 @@ function requestMindmapHostBridge(action, payload = {}) {
       payload
     }, '*')
   })
+}
+
+async function callMindmapBridgeWithFallback(action, payload, fallback) {
+  if (isMindmapHostBridgeAvailable()) {
+    try {
+      return await requestMindmapHostBridge(action, payload)
+    } catch (error) {
+      if (!fallback) throw error
+    }
+  }
+  if (!fallback) {
+    throw new Error('当前操作不可用')
+  }
+  return fallback()
 }
 
 function blobToDataUrl(blob) {
@@ -212,97 +236,91 @@ export const getLocalConfig = () => {
 }
 
 export const saveCloudData = async (filename, data, overwrite = false) => {
-  if (isMindmapHostBridgeAvailable()) {
-    return requestMindmapHostBridge('cloud:save', {
+  return callMindmapBridgeWithFallback('cloud:save', {
+    filename,
+    overwrite,
+    content: JSON.stringify(data)
+  }, async () => {
+    const response = await fetch(buildMindmapApiUrl('/api/mindmap/save'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
       filename,
       overwrite,
       content: JSON.stringify(data)
     })
-  }
-  const response = await fetch(buildMindmapApiUrl('/api/mindmap/save'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      filename,
-      overwrite,
-      content: JSON.stringify(data)
     })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(payload.error || `保存失败: ${response.status}`)
+    return payload
   })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || `保存失败: ${response.status}`)
-  return payload
 }
 
 export const loadCloudData = async filename => {
-  if (isMindmapHostBridgeAvailable()) {
-    const payload = await requestMindmapHostBridge('cloud:load', { filename })
-    return JSON.parse(payload.content || '{}')
-  }
-  const response = await fetch(buildMindmapApiUrl(`/api/mindmap/load?filename=${encodeURIComponent(filename)}`))
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || `加载失败: ${response.status}`)
+  const payload = await callMindmapBridgeWithFallback('cloud:load', { filename }, async () => {
+    const response = await fetch(buildMindmapApiUrl(`/api/mindmap/load?filename=${encodeURIComponent(filename)}`))
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || `加载失败: ${response.status}`)
+    return result
+  })
   return JSON.parse(payload.content || '{}')
 }
 
 export const listCloudFiles = async () => {
-  if (isMindmapHostBridgeAvailable()) {
-    const payload = await requestMindmapHostBridge('cloud:list')
-    return Array.isArray(payload.files) ? payload.files : []
-  }
-  const response = await fetch(buildMindmapApiUrl('/api/mindmap/list'))
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
+  const payload = await callMindmapBridgeWithFallback('cloud:list', {}, async () => {
+    const response = await fetch(buildMindmapApiUrl('/api/mindmap/list'))
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || `读取失败: ${response.status}`)
+    return result
+  })
   return Array.isArray(payload.files) ? payload.files : []
 }
 
 export const listCloudImages = async () => {
-  if (isMindmapHostBridgeAvailable()) {
-    const payload = await requestMindmapHostBridge('cloud:list-images')
-    return Array.isArray(payload.files) ? payload.files : []
-  }
-  const response = await fetch(buildMindmapApiUrl('/api/mindmap/list?kind=image'))
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || `读取失败: ${response.status}`)
+  const payload = await callMindmapBridgeWithFallback('cloud:list-images', {}, async () => {
+    const response = await fetch(buildMindmapApiUrl('/api/mindmap/list?kind=image'))
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || `读取失败: ${response.status}`)
+    return result
+  })
   return Array.isArray(payload.files) ? payload.files : []
 }
 
 export const deleteCloudData = async (filename, kind = 'file') => {
-  if (isMindmapHostBridgeAvailable()) {
-    return requestMindmapHostBridge('cloud:delete', { filename, kind })
-  }
-  const response = await fetch(buildMindmapApiUrl('/api/mindmap/delete'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ filename, kind })
+  return callMindmapBridgeWithFallback('cloud:delete', { filename, kind }, async () => {
+    const response = await fetch(buildMindmapApiUrl('/api/mindmap/delete'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ filename, kind })
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(payload.error || `删除失败: ${response.status}`)
+    return payload
   })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || `删除失败: ${response.status}`)
-  return payload
 }
 
 export const uploadCloudImage = async (filename, blob, overwrite = false) => {
-  if (isMindmapHostBridgeAvailable()) {
-    return requestMindmapHostBridge('cloud:upload-image', {
-      filename,
-      overwrite,
-      dataUrl: await blobToDataUrl(blob)
+  return callMindmapBridgeWithFallback('cloud:upload-image', {
+    filename,
+    overwrite,
+    dataUrl: await blobToDataUrl(blob)
+  }, async () => {
+    const formData = new FormData()
+    formData.append('filename', filename)
+    formData.append('overwrite', String(overwrite))
+    formData.append('file', blob, String(filename || 'mindmap.png').replace(/\.smm$/i, '.png'))
+    const response = await fetch(buildMindmapApiUrl('/api/mindmap/upload-image'), {
+      method: 'POST',
+      body: formData
     })
-  }
-  const formData = new FormData()
-  formData.append('filename', filename)
-  formData.append('overwrite', String(overwrite))
-  formData.append('file', blob, String(filename || 'mindmap.png').replace(/\.smm$/i, '.png'))
-  const response = await fetch(buildMindmapApiUrl('/api/mindmap/upload-image'), {
-    method: 'POST',
-    body: formData
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(payload.error || `图片上传失败: ${response.status}`)
+    return payload
   })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || `图片上传失败: ${response.status}`)
-  return payload
 }
 
 export { isMindmapHostBridgeAvailable, requestMindmapHostBridge }

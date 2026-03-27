@@ -214,7 +214,7 @@ import Import from './Import.vue'
 import { mapState } from 'vuex'
 import { Notification } from 'element-ui'
 import exampleData from 'simple-mind-map/example/exampleData'
-import { getData, saveCloudData, loadCloudData, listCloudFiles, listCloudImages, deleteCloudData, uploadCloudImage, isMindmapHostBridgeAvailable } from '../../../api'
+import { getData, saveCloudData, loadCloudData, listCloudFiles, listCloudImages, deleteCloudData, uploadCloudImage, isMindmapHostBridgeAvailable, requestMindmapHostBridge } from '../../../api'
 import ToolbarNodeBtnList from './ToolbarNodeBtnList.vue'
 import { throttle, isMobile } from 'simple-mind-map/src/utils/index'
 
@@ -498,6 +498,28 @@ export default {
     },
 
     openLocalFileSafe() {
+      if (this.hostBridgeEnabled) {
+        requestMindmapHostBridge('local:open')
+          .then(payload => {
+            if (!payload?.content) return
+            fileHandle = null
+            this.$store.commit('setIsHandleLocalFile', false)
+            this.setData(payload.content)
+            if (payload.filename) {
+              this.cloudCurrentFile = String(payload.filename).replace(/\.(json|smm)$/i, '.smm')
+            }
+            this.$message.success(`已打开本地文件：${payload.filename || 'mindmap.smm'}`)
+          })
+          .catch(() => {
+            if (this.canUseNativeLocalFile) {
+              this.openLocalFile()
+              return
+            }
+            this.$refs.fallbackFileInput.value = ''
+            this.$refs.fallbackFileInput.click()
+          })
+        return
+      }
       if (this.canUseNativeLocalFile) {
         this.openLocalFile()
         return
@@ -507,6 +529,27 @@ export default {
     },
 
     saveLocalFileSafe() {
+      if (this.hostBridgeEnabled) {
+        requestMindmapHostBridge('local:save', {
+          filename: this.cloudCurrentFile || 'mindmap.smm',
+          content: JSON.stringify(getData())
+        })
+          .then(payload => {
+            if (payload?.cancelled) return
+            if (payload?.filename) {
+              this.cloudCurrentFile = String(payload.filename).replace(/\.(json|smm)$/i, '.smm')
+            }
+            this.$message.success(`已保存到本地：${payload?.filename || this.cloudCurrentFile || 'mindmap.smm'}`)
+          })
+          .catch(() => {
+            if (this.canUseNativeLocalFile) {
+              this.saveLocalFile()
+              return
+            }
+            this.downloadLocalSnapshot(getData(), this.cloudCurrentFile || 'mindmap.smm')
+          })
+        return
+      }
       if (this.canUseNativeLocalFile) {
         this.saveLocalFile()
         return
@@ -515,6 +558,31 @@ export default {
     },
 
     createNewLocalFileSafe() {
+      if (this.hostBridgeEnabled) {
+        requestMindmapHostBridge('local:save', {
+          filename: 'mindmap.smm',
+          content: JSON.stringify(exampleData)
+        })
+          .then(payload => {
+            if (payload?.cancelled) return
+            fileHandle = null
+            this.$store.commit('setIsHandleLocalFile', false)
+            this.$bus.$emit('setData', exampleData)
+            this.cloudCurrentFile = String(payload?.filename || 'mindmap.smm').replace(/\.(json|smm)$/i, '.smm')
+            this.$message.success(`已创建新的本地脑图：${payload?.filename || 'mindmap.smm'}`)
+          })
+          .catch(() => {
+            if (this.canUseNativeLocalFile) {
+              this.createNewLocalFile()
+              return
+            }
+            this.$store.commit('setIsHandleLocalFile', false)
+            this.$bus.$emit('setData', exampleData)
+            this.downloadLocalSnapshot(exampleData, 'mindmap.smm')
+            this.$message.success('已生成新的本地脑图文件')
+          })
+        return
+      }
       if (this.canUseNativeLocalFile) {
         this.createNewLocalFile()
         return
