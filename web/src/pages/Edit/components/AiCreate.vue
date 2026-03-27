@@ -292,10 +292,10 @@ export default {
           this.aiCreatingContent = content
           this.resetOnAiCreatingStop()
         },
-        () => {
+          error => {
           this.resetOnAiCreatingStop()
           this.resetOnRenderEnd()
-          this.$message.error(this.$t('ai.generationFailed'))
+            this.$message.error(error?.message || this.$t('ai.generationFailed'))
         }
       )
     },
@@ -489,11 +489,11 @@ export default {
             this.resetOnAiCreatingStop()
             this.resetAiCreatePartDialog()
           },
-          () => {
+          error => {
             this.resetOnAiCreatingStop()
             this.resetAiCreatePartDialog()
             this.resetOnRenderEnd()
-            this.$message.error(this.$t('ai.generationFailed'))
+            this.$message.error(error?.message || this.$t('ai.generationFailed'))
           }
         )
       } catch (error) {

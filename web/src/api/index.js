@@ -38,10 +38,11 @@ function requestMindmapHostBridge(action, payload = {}) {
   }
   return new Promise((resolve, reject) => {
     const requestId = `mindmap-${Date.now()}-${bridgeRequestId += 1}`
+    const timeoutMs = action === 'ai:chat' ? 90000 : 12000
     const timer = window.setTimeout(() => {
       window.removeEventListener('message', onMessage)
       reject(new Error('宿主响应超时，请确认 dashboard 页面已刷新'))
-    }, 12000)
+    }, timeoutMs)
 
     const onMessage = event => {
       const data = event.data || {}
