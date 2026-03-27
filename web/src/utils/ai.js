@@ -40,10 +40,20 @@ class Ai {
     try {
       if (this.baseData.provider === 'dashboard') {
         this.controller = new AbortController()
-        const payload = await requestMindmapHostBridge('ai:chat', {
-          messages: Array.isArray(data?.messages) ? data.messages : [],
-          model: this.baseData?.data?.model || ''
-        })
+        const payload = await requestMindmapHostBridge(
+          'ai:chat',
+          {
+            messages: Array.isArray(data?.messages) ? data.messages : [],
+            model: this.baseData?.data?.model || ''
+          },
+          {
+            onProgress: bridgePayload => {
+              if (this.controller?.signal?.aborted) return
+              this.content = String(bridgePayload?.content || this.content || '')
+              progress(this.content)
+            }
+          }
+        )
         if (this.controller.signal.aborted) return
         this.content = String(payload?.content || '')
         progress(this.content)

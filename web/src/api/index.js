@@ -32,21 +32,35 @@ function isMindmapHostBridgeAvailable() {
   }
 }
 
-function requestMindmapHostBridge(action, payload = {}) {
+function requestMindmapHostBridge(action, payload = {}, options = {}) {
   if (!isMindmapHostBridgeAvailable()) {
     return Promise.reject(new Error('当前页面未启用宿主桥接'))
   }
   return new Promise((resolve, reject) => {
     const requestId = `mindmap-${Date.now()}-${bridgeRequestId += 1}`
     const timeoutMs = action === 'ai:chat' ? 90000 : 12000
-    const timer = window.setTimeout(() => {
-      window.removeEventListener('message', onMessage)
-      reject(new Error('宿主响应超时，请确认 dashboard 页面已刷新'))
-    }, timeoutMs)
+    let timer = 0
+    const resetTimer = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        window.removeEventListener('message', onMessage)
+        reject(new Error('宿主响应超时，请确认 dashboard 页面已刷新'))
+      }, timeoutMs)
+    }
 
     const onMessage = event => {
       const data = event.data || {}
-      if (data.channel !== MINDMAP_BRIDGE_CHANNEL || data.direction !== 'response' || data.requestId !== requestId) {
+      if (data.channel !== MINDMAP_BRIDGE_CHANNEL || data.requestId !== requestId) {
+        return
+      }
+      if (data.direction === 'progress') {
+        resetTimer()
+        if (typeof options.onProgress === 'function') {
+          options.onProgress(data.result)
+        }
+        return
+      }
+      if (data.direction !== 'response') {
         return
       }
       window.clearTimeout(timer)
@@ -59,6 +73,7 @@ function requestMindmapHostBridge(action, payload = {}) {
     }
 
     window.addEventListener('message', onMessage)
+    resetTimer()
     window.parent.postMessage({
       channel: MINDMAP_BRIDGE_CHANNEL,
       direction: 'request',
