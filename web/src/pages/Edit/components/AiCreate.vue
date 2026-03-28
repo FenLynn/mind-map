@@ -145,6 +145,8 @@ export default {
       aiInput: '',
       aiCreatingMaskVisible: false,
       aiConfigDialogVisible: false,
+      aiWatchdogTimer: 0,
+      aiWatchdogTouchedAt: 0,
 
       mindMapDataCache: '',
       beingAiCreateNodeUid: '',
@@ -176,8 +178,41 @@ export default {
     this.$bus.$off('ai_chat', this.aiChat)
     this.$bus.$off('ai_chat_stop', this.aiChatStop)
     this.$bus.$off('showAiConfigDialog', this.showAiConfigDialog)
+    this.clearAiWatchdog()
   },
   methods: {
+    touchAiWatchdog() {
+      this.aiWatchdogTouchedAt = Date.now()
+    },
+
+    clearAiWatchdog() {
+      if (this.aiWatchdogTimer) {
+        clearInterval(this.aiWatchdogTimer)
+        this.aiWatchdogTimer = 0
+      }
+      this.aiWatchdogTouchedAt = 0
+    },
+
+    startAiWatchdog(onTimeout) {
+      this.clearAiWatchdog()
+      this.touchAiWatchdog()
+      this.aiWatchdogTimer = window.setInterval(() => {
+        if (!this.isAiCreating) {
+          this.clearAiWatchdog()
+          return
+        }
+        if (Date.now() - this.aiWatchdogTouchedAt < 25000) return
+        try {
+          this.aiInstance && this.aiInstance.stop && this.aiInstance.stop()
+        } catch (error) {
+          console.log(error)
+        }
+        this.resetOnAiCreatingStop()
+        this.resetOnRenderEnd()
+        onTimeout && onTimeout()
+      }, 3000)
+    },
+
     // 显示AI配置修改弹窗
     showAiConfigDialog() {
       this.aiConfigDialogVisible = true
@@ -282,6 +317,7 @@ export default {
           ]
         },
         content => {
+          this.touchAiWatchdog()
           if (content) {
             const arr = content.split(/\n+/)
             this.aiCreatingContent = arr.splice(0, arr.length - 1).join('\n')
@@ -289,6 +325,7 @@ export default {
           this.loopRenderOnAiCreating()
         },
         content => {
+          this.touchAiWatchdog()
           this.aiCreatingContent = content
           this.resetOnAiCreatingStop()
         },
@@ -298,6 +335,9 @@ export default {
             this.$message.error(error?.message || this.$t('ai.generationFailed'))
         }
       )
+      this.startAiWatchdog(() => {
+        this.$message.error('AI 生成超时，请重试')
+      })
     },
 
     // AI请求完成或出错后需要复位的数据
@@ -305,6 +345,7 @@ export default {
       this.aiCreatingMaskVisible = false
       this.isAiCreating = false
       this.aiInstance = null
+      this.clearAiWatchdog()
     },
 
     // 渲染结束后需要复位的数据
@@ -321,6 +362,7 @@ export default {
       this.aiInstance.stop()
       this.isAiCreating = false
       this.aiCreatingMaskVisible = false
+      this.clearAiWatchdog()
       this.$message.success(this.$t('ai.stoppedGenerating'))
     },
 
@@ -477,6 +519,7 @@ export default {
             ]
           },
           content => {
+            this.touchAiWatchdog()
             if (content) {
               const arr = content.split(/\n+/)
               this.aiCreatingContent = arr.splice(0, arr.length - 1).join('\n')
@@ -485,6 +528,7 @@ export default {
             this.loopRenderOnAiCreatingPart()
           },
           content => {
+            this.touchAiWatchdog()
             this.aiCreatingContent = content
             this.resetOnAiCreatingStop()
             this.resetAiCreatePartDialog()
@@ -496,6 +540,10 @@ export default {
             this.$message.error(error?.message || this.$t('ai.generationFailed'))
           }
         )
+        this.startAiWatchdog(() => {
+          this.resetAiCreatePartDialog()
+          this.$message.error('AI 续写超时，请重试')
+        })
       } catch (error) {
         console.log(error)
       }
